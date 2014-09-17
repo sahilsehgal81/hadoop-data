@@ -1,0 +1,40 @@
+env:
+  global:
+  - CI_HOME=`pwd`/../../
+language: php
+php:
+- 5.5
+services:
+- memcached
+- redis-server
+- elasticsearch
+notifications:
+  slack:
+    on_success: never
+    on_failure: always
+before_install:
+- secret=`openssl rsautl -decrypt -inkey ~/.ssh/id_rsa -in $TRAVIS_BUILD_DIR/.travis/secret`
+- openssl aes-256-cbc -k "$secret" -in $TRAVIS_BUILD_DIR/.travis/id_private.enc -d -a
+  -out id_private
+- ssh-add -D
+- chmod 600 id_private
+- ssh-add ./id_private
+- rm -f ./id_private
+- cd $CI_HOME
+- git clone --branch=master git@github.com:kayako/travis-ci.git kayako/travis-ci
+install:
+- cd $CI_HOME
+- cd kayako/travis-ci
+- php build.php
+before_script:
+- mysql -e 'create database swift;'
+- mysql -e 'create database swiftv5;'
+script:
+- cd $CI_HOME
+- cd kayako/travis-ci
+- php bin/lint -R $TRAVIS_BUILD_DIR
+- php test.php
+after_success:
+- cd $CI_HOME
+- cd kayako/travis-ci
+- php package.php
